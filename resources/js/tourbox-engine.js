@@ -77,9 +77,13 @@ export class TourBoxEngine {
         this.renderer.toneMappingExposure = 1.0;
         this.container.appendChild(this.renderer.domElement);
 
-        // 4. Cubic Room 6-Planes with anti-seam overlap (Presisi tanpa distorsi mirror)
-        const ROOM_SIZE = 1002; // Overlap 0.2% agar sambungan sudut tidak bergaris hitam
+        // 4. Concave Curved-Corner Cubic Room (Mesh Kotak dengan Sudut Melengkung Masuk)
+        // Subdivided 32x32 planes where corners smoothly curve inward towards (0,0,0)
+        // Eliminates corner elongation while keeping flat room feel in the center.
         const ROOM_DIST = 500;
+        const ROOM_SIZE = 1000;
+        const SEGMENTS = 32;
+        const CURVATURE_K = 0.35; // 0 = flat box, 1 = perfect sphere, 0.35 = flat center + rounded inward corners
 
         this.roomGroup = new THREE.Group();
         this.planeMeshes = {};
@@ -106,10 +110,31 @@ export class TourBoxEngine {
                 color: 0x1e293b,
                 side: THREE.DoubleSide
             });
-            const geo = new THREE.PlaneGeometry(ROOM_SIZE, ROOM_SIZE);
+            const geo = new THREE.PlaneGeometry(ROOM_SIZE, ROOM_SIZE, SEGMENTS, SEGMENTS);
+
+            // Rotate and translate geometry into room space
+            geo.rotateX(cfg.rot[0]);
+            geo.rotateY(cfg.rot[1]);
+            geo.rotateZ(cfg.rot[2]);
+            geo.translate(cfg.pos[0], cfg.pos[1], cfg.pos[2]);
+
+            // Deform vertices inward at the corners towards origin (0, 0, 0)
+            const posAttr = geo.attributes.position;
+            for (let i = 0; i < posAttr.count; i++) {
+                const vx = posAttr.getX(i);
+                const vy = posAttr.getY(i);
+                const vz = posAttr.getZ(i);
+                const r = Math.hypot(vx, vy, vz);
+                if (r > 0.001) {
+                    const factor = (1 - CURVATURE_K) + CURVATURE_K * (ROOM_DIST / r);
+                    posAttr.setXYZ(i, vx * factor, vy * factor, vz * factor);
+                }
+            }
+            posAttr.needsUpdate = true;
+            geo.computeVertexNormals();
+
+            // Mesh stays at (0, 0, 0) as vertices are in world coordinates
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(...cfg.pos);
-            mesh.rotation.set(...cfg.rot);
             mesh.name = cfg.key;
             this.roomGroup.add(mesh);
             this.planeMeshes[cfg.key] = mesh;
@@ -239,8 +264,8 @@ export class TourBoxEngine {
         // Update nadir censor
         this.setNadirCensor(view.has_nadir_censor, view.nadir_censor_type);
 
-        if (view.view_type === 'sphere_panels' && Array.isArray(view.panels) && view.panels.length > 0) {
-            // Mode 2: Multi-Panel Sphere ("Naro Tembok" 3D)
+        if (view.view_type === 'sphere_panels' && (view.panorama_url || (Array.isArray(view.panels) && view.panels.length > 0))) {
+            // Mode 2: Multi-Panel Sphere / 360° Cylinder
             this.roomGroup.visible = false;
             this.spherePanelsGroup.visible = true;
 
@@ -253,42 +278,58 @@ export class TourBoxEngine {
                 this.spherePanelsGroup.remove(child);
             }
 
-            const R = 480;
-            view.panels.forEach((p) => {
-                const pitch = typeof p.pitch === 'number' ? p.pitch : 0;
-                const yaw = typeof p.yaw === 'number' ? p.yaw : 0;
-
-                const phi = THREE.MathUtils.degToRad(90 - pitch);
-                const theta = THREE.MathUtils.degToRad(yaw);
-
-                const x = R * Math.sin(phi) * Math.sin(theta);
-                const y = R * Math.cos(phi);
-                const z = -R * Math.sin(phi) * Math.cos(theta);
-
-                // Anti-overlap sizing matched to 45° FOV
-                const pw = p.width || (p.ring === 'equator' ? 400 : (p.ring === 'zenith' || p.ring === 'nadir' ? 480 : 420));
-                const ph = p.height || (p.ring === 'equator' ? 400 : (p.ring === 'zenith' || p.ring === 'nadir' ? 480 : 380));
-                const geo = new THREE.PlaneGeometry(pw, ph);
-
-                const mat = new THREE.MeshBasicMaterial({
+            if (view.panorama_url) {
+                // Continuous Seamless 360° Cylinder Mesh (Zero Seams, Zero Duplication!)
+                const cylGeo = new THREE.CylinderGeometry(500, 500, 850, 64, 1, true);
+                cylGeo.scale(-1, 1, 1); // Face inward
+                const cylMat = new THREE.MeshBasicMaterial({
                     color: 0xffffff,
-                    side: THREE.DoubleSide
+                    side: THREE.FrontSide
                 });
+                this.loadTexture(view.panorama_url, (tex) => {
+                    cylMat.map = tex;
+                    cylMat.needsUpdate = true;
+                });
+                const cylMesh = new THREE.Mesh(cylGeo, cylMat);
+                cylMesh.rotation.y = -Math.PI / 2; // Align 0° heading with -Z (Front)
+                this.spherePanelsGroup.add(cylMesh);
+            } else {
+                // Individual cropped panels fallback
+                const R = 480;
+                view.panels.forEach((p) => {
+                    const pitch = typeof p.pitch === 'number' ? p.pitch : 0;
+                    const yaw = typeof p.yaw === 'number' ? p.yaw : 0;
 
-                if (p.image) {
-                    this.loadTexture(p.image, (tex) => {
-                        mat.map = tex;
-                        mat.needsUpdate = true;
+                    const phi = THREE.MathUtils.degToRad(90 - pitch);
+                    const theta = THREE.MathUtils.degToRad(yaw);
+
+                    const x = R * Math.sin(phi) * Math.sin(theta);
+                    const y = R * Math.cos(phi);
+                    const z = -R * Math.sin(phi) * Math.cos(theta);
+
+                    // Anti-overlap sizing matched to 45° FOV (8 vertical panels)
+                    const pw = p.width || 390;
+                    const ph = p.height || 680;
+                    const geo = new THREE.PlaneGeometry(pw, ph);
+
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        side: THREE.DoubleSide
                     });
-                }
 
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(x, y, z);
-                // Look directly at camera at (0, 0, 0).
-                // DO NOT rotateY(Math.PI) which flips it away from camera causing backface culling!
-                mesh.lookAt(0, 0, 0);
-                this.spherePanelsGroup.add(mesh);
-            });
+                    if (p.image) {
+                        this.loadTexture(p.image, (tex) => {
+                            mat.map = tex;
+                            mat.needsUpdate = true;
+                        });
+                    }
+
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(x, y, z);
+                    mesh.lookAt(0, 0, 0);
+                    this.spherePanelsGroup.add(mesh);
+                });
+            }
         } else {
             // Mode 1: 6-Plane Cubic Room (Depan, Kanan, Belakang, Kiri, Plafon, Lantai)
             this.roomGroup.visible = true;

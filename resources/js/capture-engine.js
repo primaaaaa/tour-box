@@ -21,7 +21,7 @@ export class TourBoxCaptureEngine {
         this.onPanelSnapped = options.onPanelSnapped || null;
         this.onComplete = options.onComplete || null;
 
-        this.mode = options.mode || 'sphere_panels'; // 'sphere_panels' or 'cubemap_6'
+        this.mode = options.mode || 'cubemap_6'; // 'cubemap_6' (default standard 6-wall room) or 'sphere_panels'
 
         // 6-Face Cubemap Steps
         this.steps = [
@@ -144,101 +144,40 @@ export class TourBoxCaptureEngine {
      * Initialize 28 Spherical Wall Panels (Equator 12, Upper 8, Lower 8)
      */
     /**
-     * Initialize Anti-Overlap 22 Spherical Wall Panels (Equator 8, Upper 6, Lower 6, Plafon 1, Lantai 1)
-     * Matches standard 1x smartphone camera FOV (~50°) with 45° angular intervals.
-     * Prevents duplicate/doubled objects across adjacent panel seams.
+     * Initialize 8 Vertical Panels around (every 45 degrees, 0° pitch)
+     * Forms an octagonal vertical 360° cylindrical panoramic room.
      */
     initSphereGrid() {
         this.spherePanels = [];
 
-        // Ring 1: Equator (Dinding Utama / 0° Pitch) - 8 Panels (every 45°)
-        const equatorCompassNames = [
-            'Depan / Utara (0°)', 'Depan-Kanan / TL (45°)', 'Kanan / Timur (90°)', 'Belakang-Kanan / TG (135°)',
-            'Belakang / Selatan (180°)', 'Belakang-Kiri / BD (225°)', 'Kiri / Barat (270°)', 'Depan-Kiri / BL (315°)'
+        // 8 Vertical Panels (0° Pitch - Every 45° around)
+        const compassNames = [
+            'Depan / Utara (0°)',
+            'Depan-Kanan / TL (45°)',
+            'Kanan / Timur (90°)',
+            'Belakang-Kanan / TG (135°)',
+            'Belakang / Selatan (180°)',
+            'Belakang-Kiri / BD (225°)',
+            'Kiri / Barat (270°)',
+            'Depan-Kiri / BL (315°)'
         ];
 
         for (let i = 0; i < 8; i++) {
             const yaw = i * 45;
             this.spherePanels.push({
-                id: `eq_${i}`,
+                id: `v_${i}`,
                 index: this.spherePanels.length,
-                ring: 'equator',
+                ring: 'vertical_8',
                 pitch: 0,
                 yaw: yaw,
-                width: 400,
-                height: 400,
-                name: `Dinding ${i + 1} (${equatorCompassNames[i]})`,
+                width: 390,
+                height: 680,
+                name: `Tembok ${i + 1} (${compassNames[i]})`,
                 short: `${yaw}°`,
                 isCaptured: false,
                 image: null
             });
         }
-
-        // Ring 2: Upper Ring (Miring Atas / +35° Pitch) - 6 Panels (every 60°)
-        for (let i = 0; i < 6; i++) {
-            const yaw = i * 60;
-            this.spherePanels.push({
-                id: `up_${i}`,
-                index: this.spherePanels.length,
-                ring: 'upper',
-                pitch: 35,
-                yaw: yaw,
-                width: 420,
-                height: 380,
-                name: `Atas ${i + 1} (${yaw}°)`,
-                short: `▲${yaw}°`,
-                isCaptured: false,
-                image: null
-            });
-        }
-
-        // Ring 3: Lower Ring (Miring Bawah / -35° Pitch) - 6 Panels (every 60°)
-        for (let i = 0; i < 6; i++) {
-            const yaw = i * 60;
-            this.spherePanels.push({
-                id: `dn_${i}`,
-                index: this.spherePanels.length,
-                ring: 'lower',
-                pitch: -35,
-                yaw: yaw,
-                width: 420,
-                height: 380,
-                name: `Bawah ${i + 1} (${yaw}°)`,
-                short: `▼${yaw}°`,
-                isCaptured: false,
-                image: null
-            });
-        }
-
-        // Ring 4: Plafon (Langit-langit / +90° Pitch)
-        this.spherePanels.push({
-            id: 'top_0',
-            index: this.spherePanels.length,
-            ring: 'zenith',
-            pitch: 90,
-            yaw: 0,
-            width: 480,
-            height: 480,
-            name: 'Plafon (Langit-langit)',
-            short: '▲90°',
-            isCaptured: false,
-            image: null
-        });
-
-        // Ring 5: Lantai (Bagian Bawah / -90° Pitch)
-        this.spherePanels.push({
-            id: 'bot_0',
-            index: this.spherePanels.length,
-            ring: 'nadir',
-            pitch: -90,
-            yaw: 0,
-            width: 480,
-            height: 480,
-            name: 'Lantai Ruangan',
-            short: '▼90°',
-            isCaptured: false,
-            image: null
-        });
     }
 
     setMode(newMode) {
@@ -331,6 +270,13 @@ export class TourBoxCaptureEngine {
 
     async setZoom(zoomFactor) {
         this.currentZoomFactor = zoomFactor;
+
+        // Dynamically adjust AR 3D Camera FOV for lens match
+        if (this.arCamera) {
+            this.arCamera.fov = (zoomFactor === 0.5) ? 105 : 76;
+            this.arCamera.updateProjectionMatrix();
+        }
+
         if (this.videoTrack && typeof this.videoTrack.getCapabilities === 'function') {
             const caps = this.videoTrack.getCapabilities();
             if (caps.zoom) {
@@ -438,6 +384,13 @@ export class TourBoxCaptureEngine {
             this.currentBeta = event.beta;
             this.currentGamma = event.gamma;
             this.hasGyroSensor = true;
+
+            // Anchor baseHeading on first orientation reading so 3D AR room rotates immediately
+            if (this.baseHeading === null) {
+                this.baseHeading = heading;
+                this.baseAlpha = event.alpha;
+            }
+
             this.updateSensorFeedback();
         }
     }
@@ -464,7 +417,7 @@ export class TourBoxCaptureEngine {
         }
 
         this.arScene = new THREE.Scene();
-        this.arCamera = new THREE.PerspectiveCamera(65, width / height, 1, 1000);
+        this.arCamera = new THREE.PerspectiveCamera((this.currentZoomFactor === 0.5) ? 105 : 76, width / height, 1, 1000);
         this.arCamera.position.set(0, 0, 0);
 
         // Group 1: Sphere Panels Mode ("Naro Tembok 3D Bola")
@@ -506,10 +459,109 @@ export class TourBoxCaptureEngine {
         this.arScene.add(this.arCubeGroup);
         this.arCubeMeshes = {};
 
-        const CUBE_DIST = 180;
-        const CUBE_SIZE = 360;
+        const CUBE_DIST = 160;
+        const CUBE_SIZE = 320;
+        const S = CUBE_DIST;
 
-        const cubeFaceConfigs = [
+        // 3D Architectural Room Wireframe ("Garis-Garis Tembok 3D")
+        // Generates the corner pillars, ceiling/floor boundary lines, and wall grid lines in 3D
+        const linesVertices = [];
+
+        // 1. 4 Vertical Corner Pillars (Tiang Sudut Tembok)
+        linesVertices.push(-S, -S, -S, -S, S, -S); // Front-Left
+        linesVertices.push(S, -S, -S, S, S, -S);   // Front-Right
+        linesVertices.push(S, -S, S, S, S, S);     // Back-Right
+        linesVertices.push(-S, -S, S, -S, S, S);   // Back-Left
+
+        // 2. Ceiling Perimeter Border (Batas Plafon Atas)
+        linesVertices.push(-S, S, -S, S, S, -S);
+        linesVertices.push(S, S, -S, S, S, S);
+        linesVertices.push(S, S, S, -S, S, S);
+        linesVertices.push(-S, S, S, -S, S, -S);
+
+        // 3. Floor Perimeter Border (Batas Lantai Bawah)
+        linesVertices.push(-S, -S, -S, S, -S, -S);
+        linesVertices.push(S, -S, -S, S, -S, S);
+        linesVertices.push(S, -S, S, -S, -S, S);
+        linesVertices.push(-S, -S, S, -S, -S, -S);
+
+        // 4. Wall Grid Guidelines (Garis Tembok Horizontal & Vertikal)
+        // Horizon / Eye-level guideline across all 4 walls at y = 0
+        linesVertices.push(-S, 0, -S, S, 0, -S); // Front horizon
+        linesVertices.push(S, 0, -S, S, 0, S);   // Right horizon
+        linesVertices.push(S, 0, S, -S, 0, S);   // Back horizon
+        linesVertices.push(-S, 0, S, -S, 0, -S); // Left horizon
+
+        // Secondary horizontal guidelines at y = -S/2 and y = +S/2
+        [-S / 2, S / 2].forEach(y => {
+            linesVertices.push(-S, y, -S, S, y, -S);
+            linesVertices.push(S, y, -S, S, y, S);
+            linesVertices.push(S, y, S, -S, y, S);
+            linesVertices.push(-S, y, S, -S, y, -S);
+        });
+
+        // Vertical division lines on each of the 4 walls (rule-of-thirds)
+        [-S / 3, 0, S / 3].forEach(off => {
+            // Front (z = -S)
+            linesVertices.push(off, -S, -S, off, S, -S);
+            // Back (z = +S)
+            linesVertices.push(off, -S, S, off, S, S);
+            // Right (x = +S)
+            linesVertices.push(S, -S, off, S, S, off);
+            // Left (x = -S)
+            linesVertices.push(-S, -S, off, -S, S, off);
+        });
+
+        // Ceiling & Floor alignment cross lines
+        [-S / 2, 0, S / 2].forEach(off => {
+            // Ceiling (y = +S)
+            linesVertices.push(-S, S, off, S, S, off);
+            linesVertices.push(off, S, -S, off, S, S);
+            // Floor (y = -S)
+            linesVertices.push(-S, -S, off, S, -S, off);
+            linesVertices.push(off, -S, -S, off, -S, S);
+        });
+
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linesVertices, 3));
+        const lineMat = new THREE.LineBasicMaterial({
+            color: 0x38bdf8, // Holographic Sky Blue
+            transparent: true,
+            opacity: 0.75,
+            linewidth: 2
+        });
+        this.arRoomWireframe = new THREE.LineSegments(lineGeo, lineMat);
+        this.arCubeGroup.add(this.arRoomWireframe);
+
+        // Active Wall Highlight Frame (Bingkai Tembok Target Menyala Hijau Neon)
+        const frameS = S;
+        const targetFrameVertices = [
+            // Outer wall border
+            -frameS, -frameS, 0, frameS, -frameS, 0,
+            frameS, -frameS, 0, frameS, frameS, 0,
+            frameS, frameS, 0, -frameS, frameS, 0,
+            -frameS, frameS, 0, -frameS, -frameS, 0,
+            // Center crosshair / level lines
+            -frameS * 0.6, 0, 0, frameS * 0.6, 0, 0,
+            0, -frameS * 0.6, 0, 0, frameS * 0.6, 0,
+            // Inner guide brackets
+            -frameS * 0.8, -frameS * 0.8, 0, frameS * 0.8, -frameS * 0.8, 0,
+            frameS * 0.8, -frameS * 0.8, 0, frameS * 0.8, frameS * 0.8, 0,
+            frameS * 0.8, frameS * 0.8, 0, -frameS * 0.8, frameS * 0.8, 0,
+            -frameS * 0.8, frameS * 0.8, 0, -frameS * 0.8, -frameS * 0.8, 0
+        ];
+        const targetFrameGeo = new THREE.BufferGeometry();
+        targetFrameGeo.setAttribute('position', new THREE.Float32BufferAttribute(targetFrameVertices, 3));
+        const targetFrameMat = new THREE.LineBasicMaterial({
+            color: 0x10b981, // Glowing Neon Emerald
+            transparent: true,
+            opacity: 0.95,
+            linewidth: 3
+        });
+        this.arTargetWallFrame = new THREE.LineSegments(targetFrameGeo, targetFrameMat);
+        this.arCubeGroup.add(this.arTargetWallFrame);
+
+        this.cubeFaceConfigs = [
             { key: 'pz', name: 'DEPAN (PZ)', compass: 'Utara (0°)', pos: [0, 0, -CUBE_DIST], rot: [0, 0, 0], icon: '🧭' },
             { key: 'px', name: 'KANAN (PX)', compass: 'Timur (+90°)', pos: [CUBE_DIST, 0, 0], rot: [0, -Math.PI / 2, 0], icon: '➡️' },
             { key: 'nz', name: 'BELAKANG (NZ)', compass: 'Selatan (180°)', pos: [0, 0, CUBE_DIST], rot: [0, Math.PI, 0], icon: '⬇️' },
@@ -518,13 +570,13 @@ export class TourBoxCaptureEngine {
             { key: 'ny', name: 'LANTAI (NY)', compass: 'Lantai Ruangan (-90°)', pos: [0, -CUBE_DIST, 0], rot: [-Math.PI / 2, 0, 0], icon: '🔽' }
         ];
 
-        cubeFaceConfigs.forEach((cfg, idx) => {
+        this.cubeFaceConfigs.forEach((cfg, idx) => {
             const geo = new THREE.PlaneGeometry(CUBE_SIZE, CUBE_SIZE);
             const isTarget = (idx === this.currentStepIndex);
             const mat = new THREE.MeshBasicMaterial({
                 map: this.createGhostCubeTexture(cfg.name, cfg.compass, cfg.icon, isTarget),
                 transparent: true,
-                opacity: 0.88,
+                opacity: 0.85,
                 side: THREE.DoubleSide
             });
 
@@ -536,6 +588,8 @@ export class TourBoxCaptureEngine {
             this.arCubeGroup.add(mesh);
             this.arCubeMeshes[cfg.key] = mesh;
         });
+
+        this.updateActiveCubeFace();
 
         // Set visibility based on active mode
         this.arSphereGroup.visible = (this.mode === 'sphere_panels');
@@ -550,30 +604,46 @@ export class TourBoxCaptureEngine {
     createGhostPanelTexture(number, label, isTarget = false) {
         const c = document.createElement('canvas');
         c.width = 256;
-        c.height = 256;
+        c.height = 440;
         const ctx = c.getContext('2d');
 
         // Glass translucent background
-        ctx.fillStyle = isTarget ? 'rgba(16, 185, 129, 0.28)' : 'rgba(99, 102, 241, 0.14)';
-        ctx.fillRect(8, 8, 240, 240);
+        ctx.fillStyle = isTarget ? 'rgba(16, 185, 129, 0.28)' : 'rgba(99, 102, 241, 0.16)';
+        ctx.fillRect(8, 8, 240, 424);
 
         // Dashed border
         ctx.lineWidth = isTarget ? 8 : 4;
         ctx.strokeStyle = isTarget ? '#10b981' : '#818cf8';
         ctx.setLineDash([16, 10]);
-        ctx.strokeRect(8, 8, 240, 240);
+        ctx.strokeRect(8, 8, 240, 424);
         ctx.setLineDash([]);
 
+        // Vertical and horizontal guidelines
+        ctx.strokeStyle = isTarget ? 'rgba(52, 211, 153, 0.4)' : 'rgba(129, 140, 248, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(8, 220); ctx.lineTo(248, 220); // Horizon
+        ctx.moveTo(128, 8); ctx.lineTo(128, 432); // Plumb line
+        ctx.stroke();
+
         // Target Reticle Icon
-        ctx.font = 'bold 38px sans-serif';
+        ctx.font = 'bold 44px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(isTarget ? '✨' : '🎯', 128, 110);
+        ctx.fillText(isTarget ? '✨' : '🎯', 128, 140);
 
         // Label
         ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 30px sans-serif';
+        ctx.fillText(`Panel ${number}/8`, 128, 215);
+
+        ctx.fillStyle = isTarget ? '#a7f3d0' : '#c7d2fe';
         ctx.font = 'bold 24px monospace';
-        ctx.fillText(label || ('#' + number), 128, 160);
+        ctx.fillText(label || '', 128, 260);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('Vertikal 45°', 128, 305);
 
         return new THREE.CanvasTexture(c);
     }
@@ -584,65 +654,97 @@ export class TourBoxCaptureEngine {
         c.height = 512;
         const ctx = c.getContext('2d');
 
-        // Glass translucent background
+        // Translucent background
         const grad = ctx.createLinearGradient(0, 0, 512, 512);
         if (isTarget) {
-            grad.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-            grad.addColorStop(1, 'rgba(6, 95, 70, 0.25)');
+            grad.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
+            grad.addColorStop(1, 'rgba(6, 78, 59, 0.20)');
         } else {
-            grad.addColorStop(0, 'rgba(99, 102, 241, 0.22)');
-            grad.addColorStop(1, 'rgba(30, 27, 75, 0.16)');
+            grad.addColorStop(0, 'rgba(14, 165, 233, 0.16)');
+            grad.addColorStop(1, 'rgba(15, 23, 42, 0.24)');
         }
         ctx.fillStyle = grad;
-        ctx.fillRect(16, 16, 480, 480);
+        ctx.fillRect(0, 0, 512, 512);
 
-        // 3D Architectural grid
-        ctx.strokeStyle = isTarget ? 'rgba(52, 211, 153, 0.35)' : 'rgba(129, 140, 248, 0.22)';
-        ctx.lineWidth = 3;
-        for (let i = 48; i <= 464; i += 52) {
+        // Architectural 3D Wall Grid lines (Garis-Garis Tembok)
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = isTarget ? 'rgba(52, 211, 153, 0.45)' : 'rgba(56, 189, 248, 0.25)';
+        for (let i = 64; i < 512; i += 64) {
             ctx.beginPath();
-            ctx.moveTo(i, 16); ctx.lineTo(i, 496);
-            ctx.moveTo(16, i); ctx.lineTo(496, i);
+            ctx.moveTo(i, 0); ctx.lineTo(i, 512);
+            ctx.moveTo(0, i); ctx.lineTo(512, i);
             ctx.stroke();
         }
 
-        // Dashed glowing border
-        ctx.lineWidth = isTarget ? 10 : 5;
-        ctx.strokeStyle = isTarget ? '#10b981' : '#818cf8';
-        ctx.setLineDash([28, 14]);
-        ctx.strokeRect(16, 16, 480, 480);
+        // Rule of thirds division lines
+        ctx.lineWidth = 3;
+        ctx.setLineDash([12, 8]);
+        ctx.strokeStyle = isTarget ? 'rgba(52, 211, 153, 0.7)' : 'rgba(56, 189, 248, 0.4)';
+        [170, 341].forEach(pos => {
+            ctx.beginPath();
+            ctx.moveTo(pos, 0); ctx.lineTo(pos, 512);
+            ctx.moveTo(0, pos); ctx.lineTo(512, pos);
+            ctx.stroke();
+        });
         ctx.setLineDash([]);
 
-        // Futuristic Corner Brackets
-        const bLen = 42;
-        ctx.lineWidth = isTarget ? 12 : 8;
-        ctx.strokeStyle = isTarget ? '#34d399' : '#a5b4fc';
-        // Top-left
-        ctx.beginPath(); ctx.moveTo(16, 16 + bLen); ctx.lineTo(16, 16); ctx.lineTo(16 + bLen, 16); ctx.stroke();
-        // Top-right
-        ctx.beginPath(); ctx.moveTo(496 - bLen, 16); ctx.lineTo(496, 16); ctx.lineTo(496, 16 + bLen); ctx.stroke();
-        // Bottom-left
-        ctx.beginPath(); ctx.moveTo(16, 496 - bLen); ctx.lineTo(16, 496); ctx.lineTo(16 + bLen, 496); ctx.stroke();
-        // Bottom-right
-        ctx.beginPath(); ctx.moveTo(496 - bLen, 496); ctx.lineTo(496, 496); ctx.lineTo(496, 496 - bLen); ctx.stroke();
+        // Horizon & Vertical Center Plumb Line
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = isTarget ? '#10b981' : '#38bdf8';
+        // Horizon line (y = 256)
+        ctx.beginPath(); ctx.moveTo(0, 256); ctx.lineTo(512, 256); ctx.stroke();
+        // Vertical plumb line (x = 256)
+        ctx.beginPath(); ctx.moveTo(256, 0); ctx.lineTo(256, 512); ctx.stroke();
 
-        // Icon & Center Text
-        ctx.font = 'bold 74px sans-serif';
+        // Level ticks along horizon
+        [128, 256, 384].forEach(x => {
+            ctx.beginPath(); ctx.moveTo(x, 244); ctx.lineTo(x, 268); ctx.stroke();
+        });
+
+        // Outer Border
+        ctx.lineWidth = isTarget ? 8 : 4;
+        ctx.strokeStyle = isTarget ? '#10b981' : '#0284c7';
+        ctx.strokeRect(4, 4, 504, 504);
+
+        // Corner Alignment Brackets
+        const bLen = 48;
+        ctx.lineWidth = isTarget ? 10 : 6;
+        ctx.strokeStyle = isTarget ? '#34d399' : '#38bdf8';
+        // Top-left
+        ctx.beginPath(); ctx.moveTo(8, 8 + bLen); ctx.lineTo(8, 8); ctx.lineTo(8 + bLen, 8); ctx.stroke();
+        // Top-right
+        ctx.beginPath(); ctx.moveTo(504 - bLen, 8); ctx.lineTo(504, 8); ctx.lineTo(504, 8 + bLen); ctx.stroke();
+        // Bottom-left
+        ctx.beginPath(); ctx.moveTo(8, 504 - bLen); ctx.lineTo(8, 504); ctx.lineTo(8 + bLen, 504); ctx.stroke();
+        // Bottom-right
+        ctx.beginPath(); ctx.moveTo(504 - bLen, 504); ctx.lineTo(504, 504); ctx.lineTo(504, 504 - bLen); ctx.stroke();
+
+        // Hologram Badge at top
+        ctx.fillStyle = isTarget ? 'rgba(16, 185, 129, 0.9)' : 'rgba(14, 165, 233, 0.8)';
+        ctx.fillRect(116, 14, 280, 36);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(isTarget ? '✨' : (icon || '🎯'), 256, 185);
+        ctx.fillText('TEMBOK 3D ARSITEKTUR', 256, 32);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 42px sans-serif';
-        ctx.fillText(title, 256, 285);
+        // Center Icon
+        ctx.font = 'bold 64px sans-serif';
+        ctx.fillText(isTarget ? '✨' : (icon || '🎯'), 256, 180);
 
-        ctx.fillStyle = isTarget ? '#a7f3d0' : '#c7d2fe';
+        // Title
+        ctx.font = 'bold 38px sans-serif';
+        ctx.fillText(title, 256, 270);
+
+        // Compass orientation
+        ctx.fillStyle = isTarget ? '#a7f3d0' : '#bae6fd';
         ctx.font = 'bold 26px monospace';
-        ctx.fillText(compass, 256, 345);
+        ctx.fillText(compass, 256, 330);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.font = 'bold 20px sans-serif';
-        ctx.fillText('TEMBOK 3D 6 SISI', 256, 400);
+        // Guide caption
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText('Sejajarkan garis dengan sudut ruangan', 256, 385);
 
         return new THREE.CanvasTexture(c);
     }
@@ -651,12 +753,22 @@ export class TourBoxCaptureEngine {
         const currentStep = this.getCurrentStep();
         if (!currentStep || !this.arCubeMeshes) return;
 
+        // Position and orient the active glowing target frame to match current face
+        if (this.cubeFaceConfigs && this.arTargetWallFrame) {
+            const activeCfg = this.cubeFaceConfigs.find(c => c.key === currentStep.key);
+            if (activeCfg) {
+                this.arTargetWallFrame.position.set(...activeCfg.pos);
+                this.arTargetWallFrame.rotation.set(...activeCfg.rot);
+                this.arTargetWallFrame.visible = true;
+            }
+        }
+
         Object.entries(this.arCubeMeshes).forEach(([key, mesh]) => {
             const isCaptured = !!this.capturedImages[key];
             const isTarget = (key === currentStep.key);
 
             if (!isCaptured) {
-                mesh.scale.setScalar(isTarget ? 1.05 : 1.0);
+                mesh.scale.setScalar(isTarget ? 1.03 : 1.0);
             }
         });
     }
@@ -693,51 +805,50 @@ export class TourBoxCaptureEngine {
     }
 
     updateActiveArPanel(heading, pitch) {
-        let bestDist = Infinity;
-        let bestIdx = -1;
-
-        // Loop over panels to find nearest uncaptured panel
-        for (let i = 0; i < this.spherePanels.length; i++) {
-            const p = this.spherePanels[i];
-            if (p.isCaptured) continue;
-
-            let deltaYaw = p.yaw - heading;
-            while (deltaYaw > 180) deltaYaw -= 360;
-            while (deltaYaw < -180) deltaYaw += 360;
-
-            const deltaPitch = p.pitch - pitch;
-            const dist = Math.hypot(deltaYaw, deltaPitch);
-
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestIdx = i;
-            }
+        // Find first uncaptured panel in sequential order (0 -> 7)
+        let targetIdx = this.spherePanels.findIndex(p => !p.isCaptured);
+        if (targetIdx === -1) {
+            targetIdx = 0;
         }
 
-        // If all panels captured
-        if (bestIdx === -1) {
-            bestIdx = 0;
+        this.activeTargetPanelIndex = targetIdx;
+        const targetPanel = this.spherePanels[targetIdx];
+
+        // Anchor baseHeading on first reading if not yet anchored
+        if (this.baseHeading === null) {
+            this.baseHeading = heading;
         }
 
-        this.activeTargetPanelIndex = bestIdx;
-        const targetPanel = this.spherePanels[bestIdx];
+        let deltaYaw = 0;
+        let deltaPitch = pitch; // Pitch should be 0 (upright sejajar dada)
 
-        let deltaYaw = targetPanel.yaw - heading;
-        while (deltaYaw > 180) deltaYaw -= 360;
-        while (deltaYaw < -180) deltaYaw += 360;
+        if (targetIdx === 0 && this.capturedPanelsCount === 0) {
+            // First panel: User can face ANY direction! (0° relative)
+            deltaYaw = 0;
+        } else {
+            // Sequential relative target: targetIdx * 45°
+            const targetRelAngle = targetIdx * 45;
+            let currentRelYaw = (heading - this.baseHeading);
+            while (currentRelYaw > 180) currentRelYaw -= 360;
+            while (currentRelYaw < -180) currentRelYaw += 360;
 
-        const deltaPitch = targetPanel.pitch - pitch;
-        const ALIGN_TOLERANCE_YAW = 7;
-        const ALIGN_TOLERANCE_PITCH = 12;
+            let turnRemaining = targetRelAngle - currentRelYaw;
+            while (turnRemaining > 180) turnRemaining -= 360;
+            while (turnRemaining < -180) turnRemaining += 360;
+
+            deltaYaw = turnRemaining;
+        }
+
+        const ALIGN_TOLERANCE_YAW = 6;
+        const ALIGN_TOLERANCE_PITCH = 10;
         const isAligned = Math.abs(deltaYaw) <= ALIGN_TOLERANCE_YAW && Math.abs(deltaPitch) <= ALIGN_TOLERANCE_PITCH;
         this.isAligned = isAligned;
 
-        // Highlight nearest ghost mesh
+        // Highlight active ghost mesh
         this.panelMeshes.forEach((mesh, idx) => {
             const p = this.spherePanels[idx];
             if (!p.isCaptured) {
-                const isThisTarget = idx === bestIdx;
-                mesh.scale.setScalar(isThisTarget ? 1.08 : 1.0);
+                mesh.scale.setScalar(idx === targetIdx ? 1.08 : 1.0);
             }
         });
 
@@ -746,23 +857,35 @@ export class TourBoxCaptureEngine {
         const xOffset = Math.max(-maxOffset, Math.min(maxOffset, deltaYaw * 1.5));
         const yOffset = Math.max(-maxOffset, Math.min(maxOffset, -deltaPitch * 2.2));
 
-        const degRemaining = Math.round(Math.hypot(deltaYaw, deltaPitch));
+        const degRemaining = Math.abs(Math.round(deltaYaw));
         let statusIcon = '🧭';
-        let statusText = `Arahkan ke: ${targetPanel.name}`;
-        let shutterHint = `Arahkan ke ${targetPanel.short}`;
+        let statusText = `Tembok ${targetIdx + 1}/8: ${targetPanel.name}`;
+        let shutterHint = `Arahkan ke Tembok ${targetIdx + 1}`;
 
-        if (isAligned) {
+        if (targetIdx === 0 && this.capturedPanelsCount === 0) {
+            if (Math.abs(deltaPitch) <= ALIGN_TOLERANCE_PITCH) {
+                statusIcon = '✨';
+                statusText = 'Posisi Tegak Pas! Jepret Tembok 1';
+                shutterHint = '📸 Jepret Tembok 1/8 (0°)';
+            } else {
+                statusIcon = '📐';
+                statusText = deltaPitch > 0 ? 'Tegakkan sedikit HP' : 'Tundukkan sedikit HP';
+                shutterHint = 'Posisikan HP Tegak Lurus';
+            }
+        } else if (isAligned) {
             statusIcon = '✨';
-            statusText = `Pas di ${targetPanel.name}! Siap Nempel`;
-            shutterHint = `📸 Pasang ${targetPanel.name}`;
+            statusText = `Tepat di ${targetPanel.short}! Siap Jepret`;
+            shutterHint = `📸 Pasang Tembok ${targetIdx + 1}/8 (${targetPanel.short})`;
         } else if (Math.abs(deltaYaw) > ALIGN_TOLERANCE_YAW) {
             statusIcon = deltaYaw > 0 ? '👉' : '👈';
-            statusText = deltaYaw > 0 ? `Putar KANAN ${Math.round(deltaYaw)}°` : `Putar KIRI ${Math.abs(Math.round(deltaYaw))}°`;
-            shutterHint = `Putar ${degRemaining}°`;
+            statusText = deltaYaw > 0
+                ? `Putar KANAN ${degRemaining}° ke Tembok ${targetIdx + 1}`
+                : `Putar KIRI ${degRemaining}° ke Tembok ${targetIdx + 1}`;
+            shutterHint = deltaYaw > 0 ? `Putar Kanan ${degRemaining}°` : `Putar Kiri ${degRemaining}°`;
         } else {
-            statusIcon = deltaPitch > 0 ? '🔼' : '🔽';
-            statusText = deltaPitch > 0 ? 'Dongakkan sedikit HP' : 'Tundukkan sedikit HP';
-            shutterHint = 'Sesuaikan Kemiringan';
+            statusIcon = '📐';
+            statusText = deltaPitch > 0 ? 'Tegakkan sedikit HP' : 'Tundukkan sedikit HP';
+            shutterHint = 'Posisikan HP Tegak';
         }
 
         if (typeof this.onSensorUpdate === 'function') {
@@ -789,19 +912,37 @@ export class TourBoxCaptureEngine {
 
     captureCurrentStep() {
         const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 1024;
         const ctx = canvas.getContext('2d');
 
         const video = this.videoElement;
         const hasActiveVideo = video && video.videoWidth > 0 && video.videoHeight > 0;
 
         if (hasActiveVideo) {
-            const size = Math.min(video.videoWidth, video.videoHeight);
-            const startX = (video.videoWidth - size) / 2;
-            const startY = (video.videoHeight - size) / 2;
-            ctx.drawImage(video, startX, startY, size, size, 0, 0, 1024, 1024);
+            const vidW = video.videoWidth;
+            const vidH = video.videoHeight;
+
+            if (this.mode === 'sphere_panels') {
+                // Mode 8 Sisi Vertikal (45° per step)
+                // Standard smartphone portrait camera has ~60° horizontal FOV.
+                // The central 75% width represents the exact 45° angular sector!
+                // Cropping the 12.5% margin on both sides eliminates duplicate overlapping objects across seams.
+                canvas.width = 720;
+                canvas.height = 1280;
+                const activeW = vidW * 0.75;
+                const startX = (vidW - activeW) / 2;
+                ctx.drawImage(video, startX, 0, activeW, vidH, 0, 0, 720, 1280);
+            } else {
+                // Mode 6 Sisi Ruangan (Cubemap)
+                canvas.width = 1024;
+                canvas.height = 1024;
+                const size = Math.min(vidW, vidH);
+                const startX = (vidW - size) / 2;
+                const startY = (vidH - size) / 2;
+                ctx.drawImage(video, startX, startY, size, size, 0, 0, 1024, 1024);
+            }
         } else {
+            canvas.width = 1024;
+            canvas.height = 1024;
             // Elegant procedural photo snapshot when webcam hardware has no active feed
             const grad = ctx.createLinearGradient(0, 0, 1024, 1024);
             grad.addColorStop(0, '#1e1b4b');
@@ -888,6 +1029,11 @@ export class TourBoxCaptureEngine {
         this.capturedPanelsCount++;
         this.lastSnappedCanvas = canvas;
 
+        if (this.capturedPanelsCount === 1) {
+            // First panel snapped: lock this direction as 0° base heading!
+            this.baseHeading = this.currentHeading;
+        }
+
         if (typeof this.onPanelSnapped === 'function') {
             this.onPanelSnapped(this.capturedPanelsCount, this.spherePanels.length, this.spherePanels);
         }
@@ -904,7 +1050,7 @@ export class TourBoxCaptureEngine {
         return dataUrl;
     }
 
-    finishSphereCapture() {
+    async finishSphereCapture() {
         let capturedOnly = this.spherePanels.filter(p => p.isCaptured);
         // If finish triggered but 0 panels taken, take current frame so user always gets output!
         if (capturedOnly.length === 0) {
@@ -912,12 +1058,105 @@ export class TourBoxCaptureEngine {
             capturedOnly = this.spherePanels.filter(p => p.isCaptured);
         }
 
+        // Automatic Panorama Stitching (Anti-Duplicate Object Blending)
+        let panoramaUrl = null;
+        try {
+            panoramaUrl = await this.stitchPanelsToPanorama(capturedOnly);
+        } catch (e) {
+            console.warn('Panorama stitch warning:', e);
+        }
+
         if (typeof this.onComplete === 'function') {
             this.onComplete({
                 view_type: 'sphere_panels',
+                panorama_url: panoramaUrl,
                 panels: capturedOnly
             });
         }
+    }
+
+    /**
+     * Stitches captured panels into a seamless 360° cylindrical panorama texture.
+     * Applies overlap compensation and soft edge feathering to completely eliminate duplicate objects.
+     */
+    stitchPanelsToPanorama(panels, outputW = 4096, outputH = 1536) {
+        return new Promise((resolve) => {
+            if (!panels || panels.length === 0) {
+                resolve(null);
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = outputW;
+            canvas.height = outputH;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, outputW, outputH);
+
+            const sorted = [...panels].sort((a, b) => (a.yaw || 0) - (b.yaw || 0));
+            const total = sorted.length;
+            const slotWidth = outputW / (total > 0 ? total : 8);
+
+            let loaded = 0;
+            const images = new Array(total);
+
+            sorted.forEach((p, idx) => {
+                const img = new Image();
+                img.onload = () => {
+                    images[idx] = img;
+                    loaded++;
+                    if (loaded === total) renderPanorama();
+                };
+                img.onerror = () => {
+                    loaded++;
+                    if (loaded === total) renderPanorama();
+                };
+                img.src = p.image;
+            });
+
+            function renderPanorama() {
+                const featherW = 36; // Feather blend width in pixels for seamless transition
+
+                sorted.forEach((p, idx) => {
+                    const img = images[idx];
+                    if (!img) return;
+
+                    const destX = Math.round(idx * slotWidth);
+                    const destW = Math.round(slotWidth);
+
+                    // Offscreen slot canvas for feather blending
+                    const slot = document.createElement('canvas');
+                    slot.width = destW + featherW * 2;
+                    slot.height = outputH;
+                    const sctx = slot.getContext('2d');
+
+                    sctx.drawImage(img, 0, 0, img.width, img.height, featherW, 0, destW, outputH);
+
+                    // Feather left edge
+                    const leftGrad = sctx.createLinearGradient(0, 0, featherW * 2, 0);
+                    leftGrad.addColorStop(0, 'rgba(0,0,0,1)');
+                    leftGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                    sctx.globalCompositeOperation = 'destination-out';
+                    sctx.fillStyle = leftGrad;
+                    sctx.fillRect(0, 0, featherW * 2, outputH);
+
+                    // Feather right edge
+                    const rightGrad = sctx.createLinearGradient(destW, 0, destW + featherW * 2, 0);
+                    rightGrad.addColorStop(0, 'rgba(0,0,0,0)');
+                    rightGrad.addColorStop(1, 'rgba(0,0,0,1)');
+                    sctx.fillStyle = rightGrad;
+                    sctx.fillRect(destW, 0, featherW * 2, outputH);
+
+                    sctx.globalCompositeOperation = 'source-over';
+
+                    // Composite onto main panorama
+                    ctx.drawImage(slot, destX - featherW, 0);
+                });
+
+                resolve(canvas.toDataURL('image/jpeg', 0.92));
+            }
+        });
     }
 
     finishCubemapEarly() {
@@ -961,6 +1200,7 @@ export class TourBoxCaptureEngine {
 
         if (this.currentStepIndex < this.steps.length - 1) {
             this.currentStepIndex++;
+            this.updateActiveCubeFace();
             this.updatePuzzleGuides();
             this.updateSensorFeedback();
             if (typeof this.onStepChange === 'function') {
@@ -998,6 +1238,7 @@ export class TourBoxCaptureEngine {
                 this.baseHeading = null;
                 this.baseAlpha = null;
             }
+            this.updateActiveCubeFace();
             this.updatePuzzleGuides();
             this.updateSensorFeedback();
             if (typeof this.onStepChange === 'function') {

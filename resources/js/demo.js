@@ -11,11 +11,11 @@ export function demoExperience(config) {
         showSuccessBanner: false,
 
         // Camera Engine state
-        captureMode: 'sphere_panels', // 'sphere_panels' or 'cubemap_6'
+        captureMode: 'cubemap_6', // 'cubemap_6' (default standard 6-wall room) or 'sphere_panels'
         captureEngine: null,
         cameraStepIndex: 0,
         capturedPanelsCount: 0,
-        totalPanelsCount: 22,
+        totalPanelsCount: 8,
         currentStepName: 'Depan (Front)',
         currentStepTitle: 'Langkah 1: Tembok DEPAN',
         currentStepCode: 'PZ',
@@ -203,9 +203,10 @@ export function demoExperience(config) {
             // Create new View from User Camera Capture directly in Demo
             const capturedView = {
                 id: 'demo-capture-' + Date.now(),
-                name: isSphere ? 'Bola 360° (Tembok 3D)' : 'Foto Kamera Anda 360°',
+                name: isSphere ? '360° (8 Sisi Vertikal 45°)' : 'Foto Kamera Anda 360°',
                 custom_id: 'my-camera-room',
                 view_type: isSphere ? 'sphere_panels' : 'cubemap',
+                panorama_url: isSphere ? (result.panorama_url || null) : null,
                 has_nadir_censor: true,
                 nadir_censor_type: 'blur',
                 default_yaw: 0,

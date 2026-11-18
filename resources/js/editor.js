@@ -20,13 +20,13 @@ export function tourEditor(config) {
 
         // Add View State
         captureTab: 'camera', // 'camera' or 'upload'
-        captureMode: 'sphere_panels', // 'sphere_panels' or 'cubemap_6'
+        captureMode: 'cubemap_6', // 'cubemap_6' (default standard 6-wall room) or 'sphere_panels'
         newViewName: '',
         newViewCustomId: '',
         capturedFaces: {},
         capturedPanels: [],
         capturedPanelsCount: 0,
-        totalPanelsCount: 22,
+        totalPanelsCount: 8,
         isSavingView: false,
 
         // Camera Engine & Sensor Feedback
@@ -254,6 +254,7 @@ export function tourEditor(config) {
                 onComplete: (result) => {
                     if (result && result.view_type === 'sphere_panels') {
                         this.capturedPanels = result.panels || [];
+                        this.capturedPanoramaUrl = result.panorama_url || null;
                         this.saveNewView();
                     } else {
                         this.capturedFaces = { ...result };
@@ -340,6 +341,7 @@ export function tourEditor(config) {
                 name: this.newViewName,
                 custom_id: this.newViewCustomId,
                 view_type: isSphere ? 'sphere_panels' : 'cubemap',
+                panorama_url: isSphere ? this.capturedPanoramaUrl : null,
                 panels_data: isSphere ? this.capturedPanels : null,
                 ...this.capturedFaces
             };

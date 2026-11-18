@@ -11,16 +11,16 @@
     <!-- Mode Switcher Tabs -->
     <div class="flex items-center justify-between gap-2">
         <div class="flex items-center p-1 bg-slate-900/90 border border-slate-700/80 rounded-2xl text-xs font-semibold shadow-inner">
-            <button @click="switchCaptureMode('sphere_panels')" type="button"
-                    class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
-                    :class="captureMode === 'sphere_panels' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white'">
-                <span>🧱 Mode Tembok 3D</span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">Rekomendasi</span>
-            </button>
             <button @click="switchCaptureMode('cubemap_6')" type="button"
                     class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
                     :class="captureMode === 'cubemap_6' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white'">
-                <span>⚡ Cepat 6 Sisi</span>
+                <span>🧱 Mode Tembok 6 Sisi</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">Rekomendasi</span>
+            </button>
+            <button @click="switchCaptureMode('sphere_panels')" type="button"
+                    class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
+                    :class="captureMode === 'sphere_panels' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white'">
+                <span>🧭 Mode 8 Sisi (45°)</span>
             </button>
         </div>
 
@@ -44,14 +44,14 @@
         <div class="glass-panel p-3 rounded-2xl border border-slate-700/80 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-xl shrink-0">
-                    🧱
+                    🧭
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h4 class="text-xs font-bold text-white">Naro Tembok 3D</h4>
-                        <span class="text-[11px] font-mono text-indigo-300 font-bold" x-text="capturedPanelsCount + ' / ' + (totalPanelsCount || 22) + ' Panel Terpasang'"></span>
+                        <h4 class="text-xs font-bold text-white">8 Sisi Vertikal (45°)</h4>
+                        <span class="text-[11px] font-mono text-indigo-300 font-bold" x-text="capturedPanelsCount + ' / ' + (totalPanelsCount || 8) + ' Tembok Terpasang'"></span>
                     </div>
-                    <p class="text-[11px] text-slate-300 mt-0.5" x-text="sensorStatusText || 'Arahkan kamera ke bingkai panel kosong...'"></p>
+                    <p class="text-[11px] text-slate-300 mt-0.5" x-text="sensorStatusText || 'Putar badan setiap 45° menghadap panel kosong...'"></p>
                 </div>
             </div>
 
@@ -110,12 +110,37 @@
     <canvas id="{{ $arCanvasId }}"
             class="absolute inset-0 w-full h-full pointer-events-none z-10"></canvas>
 
+    <!-- 2D Architectural Wall Guidelines HUD Overlay (Mode 6 Sisi) -->
+    <div x-show="captureMode === 'cubemap_6'" class="absolute inset-0 pointer-events-none z-15">
+        <!-- Rule of thirds dashed lines -->
+        <div class="absolute inset-x-0 top-1/3 border-b border-indigo-500/20 border-dashed"></div>
+        <div class="absolute inset-x-0 bottom-1/3 border-b border-indigo-500/20 border-dashed"></div>
+        <div class="absolute inset-y-0 left-1/3 border-r border-indigo-500/20 border-dashed"></div>
+        <div class="absolute inset-y-0 right-1/3 border-r border-indigo-500/20 border-dashed"></div>
+
+        <!-- Center Horizon & Plumb Line -->
+        <div class="absolute inset-x-8 top-1/2 -translate-y-1/2 border-b transition-colors duration-200"
+             :class="isCameraAligned ? 'border-emerald-400/60' : 'border-indigo-400/30'"></div>
+        <div class="absolute inset-y-8 left-1/2 -translate-x-1/2 border-r transition-colors duration-200"
+             :class="isCameraAligned ? 'border-emerald-400/60' : 'border-indigo-400/30'"></div>
+
+        <!-- Corner Wall Brackets -->
+        <div class="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 transition-colors duration-200"
+             :class="isCameraAligned ? 'border-emerald-400' : 'border-indigo-400/50'"></div>
+        <div class="absolute top-3 right-3 w-5 h-5 border-t-2 border-r-2 transition-colors duration-200"
+             :class="isCameraAligned ? 'border-emerald-400' : 'border-indigo-400/50'"></div>
+        <div class="absolute bottom-3 left-3 w-5 h-5 border-b-2 border-l-2 transition-colors duration-200"
+             :class="isCameraAligned ? 'border-emerald-400' : 'border-indigo-400/50'"></div>
+        <div class="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 transition-colors duration-200"
+             :class="isCameraAligned ? 'border-emerald-400' : 'border-indigo-400/50'"></div>
+    </div>
+
     <!-- Left Puzzle Guide (Cubemap Mode & Sphere Panels Mode) -->
     <div x-show="(captureMode === 'cubemap_6' && cameraStepIndex >= 1 && cameraStepIndex <= 3) || (captureMode === 'sphere_panels' && capturedPanelsCount >= 1)" x-cloak
-         class="puzzle-strip-container puzzle-left z-20">
+         class="puzzle-strip-container puzzle-left z-20 opacity-80 pointer-events-none">
         <canvas id="{{ $leftCanvasId }}" class="puzzle-strip-canvas"></canvas>
         <div class="puzzle-seam-line"></div>
-        <div class="puzzle-badge" x-text="captureMode === 'sphere_panels' ? '🧩 Sambungan Tepi Foto' : '🧩 Sambungkan Garis'"></div>
+        <div class="puzzle-badge" x-text="captureMode === 'sphere_panels' ? '🧩 Tepi Foto Lalu' : '🧩 Sambungkan Garis'"></div>
     </div>
 
     <!-- Right Puzzle Guide (Cubemap Mode Only) -->
@@ -169,15 +194,15 @@
     <template x-if="captureMode === 'sphere_panels'">
         <div>
             <div class="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-                <span>Progress Tembok 3D:</span>
-                <span class="font-bold text-emerald-400" x-text="capturedPanelsCount + ' / ' + (totalPanelsCount || 22) + ' Panel'"></span>
+                <span>Progress 8 Sisi Vertikal:</span>
+                <span class="font-bold text-emerald-400" x-text="capturedPanelsCount + ' / ' + (totalPanelsCount || 8) + ' Tembok'"></span>
             </div>
             <div class="w-full h-2.5 rounded-full bg-slate-900 border border-slate-800 overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-300"
-                     :style="'width: ' + ((capturedPanelsCount / (totalPanelsCount || 22)) * 100) + '%'"></div>
+                     :style="'width: ' + ((capturedPanelsCount / (totalPanelsCount || 8)) * 100) + '%'"></div>
             </div>
             <p class="text-[11px] text-slate-500 mt-2 text-center">
-                💡 Putar HP ke sekeliling ruangan untuk melihat dinding yang sudah terpasang melayang di ruang 3D!
+                💡 Pegang HP tegak sejajar dada, putar badan ke sekeliling setiap 45° untuk memasang 8 sisi tembok!
             </p>
         </div>
     </template>
