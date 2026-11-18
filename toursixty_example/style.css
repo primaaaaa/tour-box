@@ -1,0 +1,1057 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --primary-glow: rgba(59, 130, 246, 0.4);
+    --bg-dark: #090d16;
+    --surface-glass: rgba(18, 24, 38, 0.85);
+    --surface-border: rgba(255, 255, 255, 0.14);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.5);
+    --warning: #f59e0b;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* =========================================
+   3D VIEWER CONTAINER
+   ========================================= */
+#viewer-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+}
+
+.web-gl {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    cursor: grab;
+}
+
+.web-gl:active {
+    cursor: grabbing;
+}
+
+.viewer-header {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.viewer-header>* {
+    pointer-events: auto;
+}
+
+.logo-tag {
+    background: var(--surface-glass);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--surface-border);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.dot-live {
+    width: 8px;
+    height: 8px;
+    background-color: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--success);
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.viewer-hint {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 15, 29, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--surface-border);
+    padding: 9px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 10;
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* =========================================
+   BUTTONS
+   ========================================= */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 15px var(--primary-glow);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+.btn-secondary {
+    background: var(--surface-glass);
+    color: var(--text-main);
+    border: 1px solid var(--surface-border);
+    backdrop-filter: blur(12px);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+}
+
+.btn-lg {
+    padding: 14px 28px;
+    font-size: 16px;
+    border-radius: 14px;
+}
+
+/* =========================================
+   MODAL / POPUP
+   ========================================= */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(4, 7, 15, 0.9);
+    backdrop-filter: blur(16px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+}
+
+.modal-card {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    border-radius: 24px;
+    max-width: 500px;
+    width: 100%;
+    padding: 36px 32px;
+    text-align: center;
+    animation: zoomIn 0.3s ease-out;
+}
+
+.modal-icon-wrapper {
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 20px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.modal-card h2 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+}
+
+.modal-desc {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.modal-features {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+    text-align: left;
+}
+
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 12px 16px;
+    border-radius: 14px;
+}
+
+.feature-num {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.feature-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.feature-text b {
+    font-size: 14px;
+    color: #f1f5f9;
+}
+
+.feature-text span {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* =========================================
+   CAMERA GUIDED SCREEN (NO MORE DIGITAL ZOOM)
+   ========================================= */
+.camera-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    overflow: hidden;
+}
+
+.camera-screen.hidden {
+    display: none;
+}
+
+/* Camera Top Panel */
+.camera-top-panel {
+    position: relative;
+    z-index: 10;
+    padding: 16px 20px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.top-row-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 480px;
+    width: 100%;
+    gap: 10px;
+}
+
+.step-badge {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--surface-border);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #60a5fa;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Zoom Pills */
+.zoom-pill-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 3px 6px;
+    border-radius: 999px;
+}
+
+.zoom-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.zoom-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.zoom-btn.active {
+    background: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+}
+
+.zoom-btn.btn-switch {
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.instruction-box {
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    padding: 10px 18px;
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+.direction-icon {
+    font-size: 30px;
+    flex-shrink: 0;
+    animation: bounce 1.5s infinite;
+}
+
+.direction-info {
+    flex: 1;
+}
+
+.title-with-deg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.direction-info h3 {
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.degree-tag {
+    background: rgba(59, 130, 246, 0.25);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #93c5fd;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.direction-info p {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* =========================================
+   SQUARE VIEWFINDER (NATIVE 1:1, NO ZOOM CROP)
+   ========================================= */
+.viewfinder-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    overflow: hidden;
+}
+
+.viewfinder-box {
+    position: relative;
+    /* Rasio bujur sangkar 1:1 pas dengan lebar sensor tanpa zoom terpotong */
+    width: min(94vw, 50vh);
+    height: min(94vw, 50vh);
+    max-width: 480px;
+    max-height: 480px;
+    border-radius: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+    /* Masking video pas di dalam kotak 1:1 */
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Video inside Viewfinder */
+#camera-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    /* Mengisi kotak 1:1 tanpa crop horizontal sensor 4:3 */
+    object-fit: cover;
+    z-index: 1;
+}
+
+/* =========================================
+   SIDE-STRIP PUZZLE ALIGNMENT GUIDES
+   ========================================= */
+.puzzle-strip-container {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+    transition: opacity 0.3s ease;
+}
+
+.puzzle-strip-container.hidden {
+    display: none;
+    opacity: 0;
+}
+
+/* Potongan tepi foto sebelumnya di kiri viewfinder (lebar 25%) */
+.puzzle-left {
+    left: 0;
+    width: 25%;
+    border-top-left-radius: 20px;
+    border-bottom-left-radius: 20px;
+}
+
+/* Potongan penutup 360 loop di kanan viewfinder untuk langkah ke-4 (lebar 20%) */
+.puzzle-right {
+    right: 0;
+    width: 20%;
+    border-top-right-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+
+.puzzle-strip-canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.6);
+}
+
+/* Garis sambungan vertikal putus-putus beranimasi */
+.puzzle-seam-line {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    border-right: 2px dashed #00e5ff;
+    box-shadow: 2px 0 12px rgba(0, 229, 255, 0.7);
+    animation: seamPulse 1.2s infinite alternate;
+}
+
+.puzzle-right-seam {
+    right: auto;
+    left: 0;
+    border-right: none;
+    border-left: 2px dashed #a855f7;
+    box-shadow: -2px 0 12px rgba(168, 85, 247, 0.7);
+}
+
+.viewfinder-box.aligned .puzzle-seam-line {
+    border-right-color: var(--success);
+    box-shadow: 2px 0 16px var(--success);
+}
+
+.viewfinder-box.aligned .puzzle-right-seam {
+    border-left-color: var(--success);
+    box-shadow: -2px 0 16px var(--success);
+}
+
+/* Badge label puzzle sambungan */
+.puzzle-badge {
+    position: absolute;
+    bottom: 46px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(0, 229, 255, 0.6);
+    color: #e0f2fe;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.puzzle-right .puzzle-badge {
+    border-color: rgba(168, 85, 247, 0.6);
+}
+
+@keyframes seamPulse {
+    0% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* State when camera is perfectly aligned with target */
+.viewfinder-box.aligned {
+    border-color: var(--success);
+    box-shadow: 0 0 25px var(--success-glow), 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.corner-guide {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-color: #60a5fa;
+    border-style: solid;
+    z-index: 5;
+    transition: border-color 0.2s ease;
+}
+
+.viewfinder-box.aligned .corner-guide {
+    border-color: var(--success);
+}
+
+.corner-tl {
+    top: 0;
+    left: 0;
+    border-width: 4px 0 0 4px;
+    border-top-left-radius: 20px;
+}
+
+.corner-tr {
+    top: 0;
+    right: 0;
+    border-width: 4px 4px 0 0;
+    border-top-right-radius: 20px;
+}
+
+.corner-bl {
+    bottom: 0;
+    left: 0;
+    border-width: 0 0 4px 4px;
+    border-bottom-left-radius: 20px;
+}
+
+.corner-br {
+    bottom: 0;
+    right: 0;
+    border-width: 0 4px 4px 0;
+    border-bottom-right-radius: 20px;
+}
+
+/* Center Reticle (Bullseye) */
+.center-reticle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 6;
+    pointer-events: none;
+}
+
+.reticle-ring {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border: 2px dashed rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.viewfinder-box.aligned .reticle-ring {
+    border: 3px solid var(--success);
+    transform: scale(1.15);
+    box-shadow: 0 0 15px var(--success-glow);
+}
+
+.reticle-dot {
+    width: 8px;
+    height: 8px;
+    background: #ffffff;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.viewfinder-box.aligned .reticle-dot {
+    background: var(--success);
+    transform: scale(1.5);
+}
+
+/* Floating Gyro Target (Photosphere Dot) */
+.target-anchor {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    transform: translate(0px, 0px);
+    transition: transform 0.08s ease-out;
+    z-index: 7;
+    pointer-events: none;
+}
+
+.target-dot {
+    position: absolute;
+    top: -22px;
+    left: -22px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.88);
+    border: 2.5px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.target-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.target-pulse {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid #60a5fa;
+    animation: targetPulse 1.4s infinite;
+}
+
+.viewfinder-box.aligned .target-dot {
+    background: var(--success);
+    border-color: #ffffff;
+    box-shadow: 0 0 25px var(--success);
+    transform: scale(1.1);
+}
+
+.viewfinder-box.aligned .target-pulse {
+    border-color: var(--success);
+}
+
+/* Live Angle Status Badge inside Viewfinder */
+.angle-status-badge {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    z-index: 8;
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.viewfinder-box.aligned .angle-status-badge {
+    background: rgba(16, 185, 129, 0.95);
+    color: #ffffff;
+    border-color: var(--success);
+    transform: translateX(-50%) scale(1.05);
+}
+
+/* Camera Bottom Panel */
+.camera-bottom-panel {
+    position: relative;
+    z-index: 10;
+    padding: 8px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+}
+
+/* Progress Slots (6 Sisi Ruangan) */
+.progress-slots {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    max-width: 480px;
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.slot-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+    width: 48px;
+}
+
+.slot-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    background-size: cover;
+    background-position: center;
+    transition: all 0.25s ease;
+}
+
+.slot-item.active .slot-thumb {
+    border-color: #3b82f6;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+    color: #fff;
+    transform: scale(1.08);
+}
+
+.slot-item.completed .slot-thumb {
+    border-color: var(--success);
+    color: #fff;
+}
+
+.slot-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.slot-item.active .slot-label {
+    color: #60a5fa;
+    font-weight: 700;
+}
+
+/* Shutter Row */
+.shutter-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    width: 100%;
+}
+
+.shutter-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.shutter-button {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: transparent;
+    border: 4px solid #ffffff;
+    padding: 4px;
+    cursor: pointer;
+    outline: none;
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.shutter-ready {
+    border-color: var(--success) !important;
+    box-shadow: 0 0 25px var(--success-glow);
+    animation: readyPulse 1s infinite alternate;
+}
+
+.shutter-button:active {
+    transform: scale(0.92);
+}
+
+.shutter-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.shutter-ready .shutter-inner {
+    background: var(--success);
+    color: #ffffff;
+}
+
+.shutter-hint {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+
+.btn-circle {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+}
+
+.btn-circle:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+.btn-circle:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Flash animation */
+.camera-flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 30;
+    transition: opacity 0.1s ease-out;
+}
+
+.camera-flash.flash-active {
+    opacity: 0.85;
+}
+
+/* Processing Spinner */
+.processing-card {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 36px 32px;
+    border-radius: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(59, 130, 246, 0.2);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* Keyframe animations */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+@keyframes zoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes targetPulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1.7);
+        opacity: 0;
+    }
+}
+
+@keyframes readyPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    100% {
+        transform: scale(1.06);
+    }
+}
+
+/* Mobile specific responsiveness */
+@media (max-width: 640px) {
+    .viewer-header {
+        top: 12px;
+        left: 12px;
+        right: 12px;
+    }
+
+    .logo-tag {
+        font-size: 12px;
+        padding: 8px 14px;
+    }
+
+    .btn {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    .slot-thumb {
+        width: 36px;
+        height: 36px;
+    }
+
+    .shutter-button {
+        width: 72px;
+        height: 72px;
+    }
+
+    .shutter-row {
+        gap: 20px;
+    }
+
+    .viewfinder-box {
+        width: min(92vw, 46vh);
+        height: min(92vw, 46vh);
+    }
+}

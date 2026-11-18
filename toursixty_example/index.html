@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Threesixtour - 360° Virtual Tour</title>
+    <link rel="stylesheet" href="./style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script type="importmap">
+        {
+            "imports":{
+                "three": "/build/three.module.js",
+                "three/examples/controls/OrbitControls": "/jsm/controls/OrbitControls.js"
+            }
+        }
+    </script>
+</head>
+
+<body>
+
+    <!-- 3D WebGL Canvas Layer -->
+    <div id="viewer-container">
+        <canvas class="web-gl"></canvas>
+
+        <!-- Viewer HUD / Controls -->
+        <header class="viewer-header">
+            <div class="logo-tag">
+                <span class="dot-live"></span> 360° Room Tour
+            </div>
+            <div class="header-actions">
+                <button id="btn-demo" class="btn btn-secondary" title="Muat Ruang Tamu Bawaan">
+                    📂 Contoh Demo
+                </button>
+                <button id="btn-start-record" class="btn btn-primary" title="Mulai Rekam Baru">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                        </path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    <span>Rekam Ruangan</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="viewer-hint">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+            </svg>
+            Geser layar atau mouse untuk melihat sekeliling ruangan 360°
+        </div>
+    </div>
+
+    <!-- Start / Welcome Modal -->
+    <div id="welcome-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-icon-wrapper">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+            </div>
+            <h2>Virtual Tour 3D (Side-Strip Puzzle)</h2>
+            <p class="modal-desc">
+                Perekaman cepat <b>6 Sisi Ruangan</b> (Depan, Kanan, Belakang, Kiri, Plafon, Lantai). Ringan, mulus tanpa lag di HP dengan panduan sambungan puzzle <b>Side-Strip</b>!
+            </p>
+
+            <div class="modal-features">
+                <div class="feature-item">
+                    <div class="feature-num">⚡</div>
+                    <div class="feature-text">
+                        <b>Mulus 60 FPS (Anti-Lag)</b>
+                        <span>Kamera berjalan murni native tanpa beban render 3D saat merekam. Ringan di semua tipe HP.</span>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-num">🧩</div>
+                    <div class="feature-text">
+                        <b>Panduan Tepi Puzzle (Side-Strip)</b>
+                        <span>Potongan tepi foto sebelumnya muncul di sisi kiri layar. Sambungkan objeknya semudah puzzle!</span>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-num">🎯</div>
+                    <div class="feature-text">
+                        <b>Cukup 6 Foto & Arah Awal Bebas</b>
+                        <span>Selesai dalam 30 detik! Arahkan foto pertama ke dinding mana pun yang Anda sukai.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button id="modal-btn-start" class="btn btn-primary btn-lg">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                    </svg>
+                    Mulai Rekam Ruangan (6 Foto)
+                </button>
+                <button id="modal-btn-demo" class="btn btn-secondary btn-lg">
+                    Lihat Contoh Demo Ruangan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guided Camera Capture Screen -->
+    <div id="camera-overlay" class="camera-screen hidden">
+
+        <!-- Top Guide Panel -->
+        <div class="camera-top-panel">
+            <div class="top-row-nav">
+                <div class="step-badge">
+                    <span id="step-number">Langkah 1 dari 6</span>
+                </div>
+
+                <!-- Zoom / Lens Controls -->
+                <div class="zoom-pill-group" id="zoom-pill-group">
+                    <button type="button" class="zoom-btn" id="btn-zoom-wide"
+                        title="Lensa 0.5x Ultra Wide">0.5x</button>
+                    <button type="button" class="zoom-btn active" id="btn-zoom-1x" title="Lensa 1x Standar">1x</button>
+                    <button type="button" class="zoom-btn btn-switch" id="btn-toggle-lens" title="Ganti Kamera">🔄 Ganti
+                        Kamera</button>
+                </div>
+            </div>
+
+            <div class="instruction-box">
+                <div id="step-icon" class="direction-icon">📷</div>
+                <div class="direction-info">
+                    <div class="title-with-deg">
+                        <h3 id="step-title">Langkah 1: Tembok DEPAN</h3>
+                        <span id="step-target-degree" class="degree-tag">Bebas Arah</span>
+                    </div>
+                    <p id="step-desc">Posisikan HP tegak sejajar dada, arahkan bebas ke dinding mana pun.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Viewfinder Mask with Side-Strip Puzzle Guides -->
+        <div class="viewfinder-container">
+            <div id="viewfinder-box" class="viewfinder-box">
+                <!-- Native 60fps Video Element inside square viewfinder -->
+                <video id="camera-video" playsinline autoplay muted></video>
+
+                <!-- Left Puzzle Seam Guide (Potongan 25% kanan foto sebelumnya) -->
+                <div id="puzzle-guide-left" class="puzzle-strip-container puzzle-left hidden">
+                    <canvas id="puzzle-strip-canvas" class="puzzle-strip-canvas"></canvas>
+                    <div class="puzzle-seam-line"></div>
+                    <div class="puzzle-badge">🧩 Sambungkan Garis</div>
+                </div>
+
+                <!-- Right Puzzle Seam Guide (Untuk langkah ke-4 menutup putaran 360°) -->
+                <div id="puzzle-guide-right" class="puzzle-strip-container puzzle-right hidden">
+                    <canvas id="puzzle-strip-right-canvas" class="puzzle-strip-canvas"></canvas>
+                    <div class="puzzle-seam-line puzzle-right-seam"></div>
+                    <div class="puzzle-badge">🔁 Menutup 360°</div>
+                </div>
+
+                <!-- Corner Guides -->
+                <div class="corner-guide corner-tl"></div>
+                <div class="corner-guide corner-tr"></div>
+                <div class="corner-guide corner-bl"></div>
+                <div class="corner-guide corner-br"></div>
+
+                <!-- Center Bullseye Reticle -->
+                <div id="center-reticle" class="center-reticle">
+                    <div class="reticle-ring"></div>
+                    <div class="reticle-dot"></div>
+                </div>
+
+                <!-- Floating Gyro Target -->
+                <div id="target-anchor" class="target-anchor">
+                    <div id="target-dot" class="target-dot">
+                        <span class="target-pulse"></span>
+                        <div class="target-icon">🎯</div>
+                    </div>
+                </div>
+
+                <!-- Live Degree Difference Badge inside Viewfinder -->
+                <div id="angle-status-badge" class="angle-status-badge">
+                    <span id="angle-status-icon">🧭</span>
+                    <span id="angle-status-text">Mengalibrasi sensor...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash Effect when taking photo -->
+        <div id="camera-flash" class="camera-flash"></div>
+
+        <!-- Bottom Controls Panel -->
+        <div class="camera-bottom-panel">
+            <!-- 6 Thumbnail Progress Slots (4 Dinding + Plafon + Lantai) -->
+            <div class="progress-slots">
+                <div class="slot-item active" data-step="0">
+                    <div class="slot-thumb" id="thumb-0">1</div>
+                    <span class="slot-label">Depan</span>
+                </div>
+                <div class="slot-item" data-step="1">
+                    <div class="slot-thumb" id="thumb-1">2</div>
+                    <span class="slot-label">Kanan</span>
+                </div>
+                <div class="slot-item" data-step="2">
+                    <div class="slot-thumb" id="thumb-2">3</div>
+                    <span class="slot-label">Belakang</span>
+                </div>
+                <div class="slot-item" data-step="3">
+                    <div class="slot-thumb" id="thumb-3">4</div>
+                    <span class="slot-label">Kiri</span>
+                </div>
+                <div class="slot-item" data-step="4">
+                    <div class="slot-thumb" id="thumb-4">5</div>
+                    <span class="slot-label">Plafon</span>
+                </div>
+                <div class="slot-item" data-step="5">
+                    <div class="slot-thumb" id="thumb-5">6</div>
+                    <span class="slot-label">Lantai</span>
+                </div>
+            </div>
+
+            <!-- Shutter & Navigation Buttons -->
+            <div class="shutter-row">
+                <button id="btn-cancel-camera" class="btn-circle btn-cancel" title="Batal & Keluar">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+
+                <div class="shutter-wrapper">
+                    <button id="btn-shutter" class="shutter-button" title="Ambil Foto">
+                        <div class="shutter-inner">
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                                </path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                        </div>
+                    </button>
+                    <span id="shutter-hint" class="shutter-hint">📸 Jepret Foto</span>
+                </div>
+
+                <button id="btn-retake-step" class="btn-circle btn-retake" title="Ulangi Langkah Sebelumnya" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <path d="M1 4v6h6"></path>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Overlay -->
+    <div id="processing-overlay" class="modal-overlay hidden">
+        <div class="processing-card">
+            <div class="spinner"></div>
+            <h3>Menyusun Ruangan 3D 360°...</h3>
+            <p>Memetakan 6 foto sisi ruangan ke dalam model 3D yang rapi</p>
+        </div>
+    </div>
+
+    <script type="module" src="./client.js"></script>
+</body>
+
+</html>
